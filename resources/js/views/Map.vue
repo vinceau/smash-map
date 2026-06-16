@@ -26,6 +26,7 @@ import FloatLabel from "primevue/floatlabel";
 import Slider from "primevue/slider";
 import Swal from "sweetalert2";
 import InputNumber from "primevue/inputnumber";
+import { useRoute, useRouter } from "vue-router";
 
 const props = defineProps({
     responsiveMenuDisplayed: {
@@ -46,6 +47,11 @@ const props = defineProps({
     },
 
     zoom: {
+        type: String,
+        required: false,
+    },
+
+    games: {
         type: String,
         required: false,
     },
@@ -121,7 +127,20 @@ const setCenterFromProps = () => {
     return haveValuesChanged;
 };
 
+const setGamesFromProps = () => {
+    if (props.games && props.games !== "default") {
+        const games = props.games
+            .split(",")
+            .map(Number)
+            .filter(Number.isFinite);
+        addressFiltersStore.selectedAddressGames = games;
+    } else {
+        addressFiltersStore.selectedAddressGames = [];
+    }
+};
+
 setCenterFromProps();
+setGamesFromProps();
 
 const openInfoWindow = (i) => {
     openedInfoWindowIndex.value = i;
@@ -216,6 +235,7 @@ onMounted(() => {
             zoom.value = 10;
         });
     }
+    setGamesFromProps();
     watch(
         () => addressStore.addressesFetched,
         () => {
@@ -240,6 +260,22 @@ onActivated(() => {
     if (setCenterFromProps() && mapRef.value) {
         mapRef.value.map.setCenter(center.value);
         mapRef.value.map.setZoom(zoom.value);
+    }
+    setGamesFromProps();
+});
+
+const router = useRouter();
+const route = useRoute();
+
+watch(addressFiltersStore.selectedAddressGames, (games) => {
+    const newQuery = { ...route.query };
+    if (games.length > 0) {
+        newQuery.games = games.join(",");
+    } else {
+        delete newQuery.games;
+    }
+    if (newQuery.games !== route.query.games) {
+        router.replace({ query: newQuery });
     }
 });
 </script>
