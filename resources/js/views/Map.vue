@@ -1,6 +1,3 @@
-<script>
-export default { name: "map" };
-</script>
 
 <script setup>
 import {
@@ -22,11 +19,11 @@ import { useAddressFiltersStore } from "../stores/AddressFiltersStore.js";
 import { useAddressesStore } from "../stores/AddressesStore.js";
 import { useEventsStore } from "../stores/EventsStore.js";
 import { useUserStore } from "../stores/UserStore.js";
+import { useOptionsStore } from "../stores/OptionsStore.js";
 import FloatLabel from "primevue/floatlabel";
 import Slider from "primevue/slider";
 import Swal from "sweetalert2";
 import InputNumber from "primevue/inputnumber";
-import { useRoute, useRouter } from "vue-router";
 
 const props = defineProps({
     responsiveMenuDisplayed: {
@@ -64,6 +61,8 @@ const eventsStore = useEventsStore();
 const userStore = useUserStore();
 
 const addressFiltersStore = useAddressFiltersStore();
+
+const optionsStore = useOptionsStore();
 
 const sideBarVisible = ref(false);
 
@@ -129,11 +128,26 @@ const setCenterFromProps = () => {
 
 const setGamesFromProps = () => {
     if (props.games && props.games !== "default") {
-        const games = props.games
+        const validIds = new Set(optionsStore.gameOptions.map(g => g.id));
+        const parsedIds = props.games
             .split(",")
             .map(Number)
             .filter(Number.isFinite);
-        addressFiltersStore.selectedAddressGames = games;
+        const invalidIds = parsedIds.filter(id => !validIds.has(id));
+        if (invalidIds.length > 0) {
+            const alertBackground = props.darkMode ? "#1C1B22" : "#FFFFFF";
+            const alertColor = props.darkMode ? "#FFFFFF" : "#1C1B22";
+            Swal.fire({
+                title: "Error",
+                text: `The following game IDs do not exist: ${invalidIds.join(", ")}`,
+                icon: "error",
+                background: alertBackground,
+                color: alertColor,
+                timer: 2000,
+                showConfirmButton: false,
+            });
+        }
+        addressFiltersStore.selectedAddressGames = parsedIds.filter(id => validIds.has(id));
     } else {
         addressFiltersStore.selectedAddressGames = [];
     }
@@ -235,7 +249,6 @@ onMounted(() => {
             zoom.value = 10;
         });
     }
-    setGamesFromProps();
     watch(
         () => addressStore.addressesFetched,
         () => {
@@ -262,21 +275,6 @@ onActivated(() => {
         mapRef.value.map.setZoom(zoom.value);
     }
     setGamesFromProps();
-});
-
-const router = useRouter();
-const route = useRoute();
-
-watch(addressFiltersStore.selectedAddressGames, (games) => {
-    const newQuery = { ...route.query };
-    if (games.length > 0) {
-        newQuery.games = games.join(",");
-    } else {
-        delete newQuery.games;
-    }
-    if (newQuery.games !== route.query.games) {
-        router.replace({ query: newQuery });
-    }
 });
 </script>
 
